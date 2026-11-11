@@ -1,0 +1,60 @@
+x-app-env: &app-env
+  # dentro da rede do Compose o Postgres é "postgres:5432" (5433 é só a porta publicada no host)
+  DATABASE_URL: postgres://ledger:ledger@postgres:5432/ledger
+  AWS_REGION: us-east-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  SQS_ENDPOINT: http://localstack:4566
+  SQS_TRANSACTIONS_QUEUE: wager-transactions.fifo
+  SQS_TRANSACTIONS_DLQ: wager-transactions-dlq.fifo
+  SQS_EVENTS_QUEUE: wager-events
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ledger
+      POSTGRES_PASSWORD: ledger
+      POSTGRES_DB: ledger
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledger -d ledger"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  localstack:
+    image: localstack/localstack:3.8
+    environment:
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./localstack/init/ready.d:/etc/localstack/init/ready.d
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal sqs get-queue-url --queue-name wager-events"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  migrate:
+    build: .
+    command: ["bun", "src/infra/persistence/migrate.ts", "up"]
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Escalável: docker compose up --scale app=3
+  app:
+    build: .
+    environment: *app-env
+    ports:
+      - "3000-3010:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_healthy

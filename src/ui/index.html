@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Betting Ledger</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#14181f;--mute:#5d6675;--line:#e1e5eb;--brand:#0b6b57;--brand-ink:#fff;--ok:#0b7a43;--okbg:#e2f5ea;--warn:#8a5a00;--warnbg:#fff1d6;--bad:#b3261e;--badbg:#fde7e5;--cred:#0b7a43;--deb:#b3261e;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1116;--card:#171b22;--ink:#e8ecf2;--mute:#9aa4b2;--line:#2a313c;--brand:#3ecf9f;--brand-ink:#06251c;--ok:#52d68a;--okbg:#10301f;--warn:#f0b955;--warnbg:#33270c;--bad:#ff8a80;--badbg:#3a1613;--cred:#52d68a;--deb:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:5}
+header h1{font-size:17px;margin:0;font-weight:650}
+.pill{font-size:12px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}
+.pill.ok{background:var(--okbg);color:var(--ok);border-color:transparent}.pill.bad{background:var(--badbg);color:var(--bad);border-color:transparent}
+main{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px 20px;max-width:1280px;margin:0 auto}
+@media (max-width:900px){main{grid-template-columns:1fr;padding:12px 16px}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:0 0 12px;font-weight:600}
+label{display:block;font-size:12px;color:var(--mute);margin:10px 0 4px}
+input,select,button{font:inherit;color:inherit}
+input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+input:focus,select:focus{outline:2px solid var(--brand);outline-offset:-1px}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);padding:8px 12px;border-radius:8px}
+button:hover{border-color:var(--brand)}button:disabled{opacity:.5;cursor:default}
+button.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+.row{display:flex;gap:8px}.row>*{flex:1}.row>button{flex:none}
+.wlist{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto;margin-top:10px}
+.w{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:13px}
+.w.sel{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 10%,transparent)}
+.w small{color:var(--mute);font-family:var(--mono)}
+.balance{font-size:34px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.meta{color:var(--mute);font-size:12px;font-family:var(--mono);word-break:break-all}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th{text-align:left;color:var(--mute);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line)}
+td.r,th.r{text-align:right}.cred{color:var(--cred)}.deb{color:var(--deb)}
+.scroll{overflow-x:auto}
+.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:600}
+.tag.s200,.tag.s201{background:var(--okbg);color:var(--ok)}.tag.s202{background:var(--warnbg);color:var(--warn)}
+.tag.s4,.tag.s5{background:var(--badbg);color:var(--bad)}
+.log{display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto}
+.entry{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px}
+.entry pre{margin:6px 0 0;font:12px/1.4 var(--mono);white-space:pre-wrap;word-break:break-all;color:var(--mute)}
+.txlink{color:var(--brand);text-decoration:underline dotted;cursor:pointer}
+.hint{font-size:12px;color:var(--mute);margin-top:6px}
+.empty{color:var(--mute);padding:14px 0;text-align:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media (max-width:1100px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Betting Ledger</h1>
+  <span id="health" class="pill">verificando…</span>
+  <span style="flex:1"></span>
+  <a class="pill" href="/metrics" target="_blank" rel="noopener" style="text-decoration:none">/metrics</a>
+</header>
+<main>
+  <aside>
+    <section class="card">
+      <h2>Nova carteira</h2>
+      <label for="nw-balance">Saldo inicial</label>
+      <input id="nw-balance" value="100.00" inputmode="decimal">
+      <label for="nw-currency">Moeda</label>
+      <input id="nw-currency" value="BRL" maxlength="3">
+      <div class="row" style="margin-top:12px"><button id="nw-create" class="primary">Criar carteira</button></div>
+      <div class="hint">Cada carteira recebe um jogador (UUID) novo. Uma carteira por jogador e moeda.</div>
+    </section>
+    <section class="card">
+      <h2>Carteiras <span class="meta" id="wcount"></span></h2>
+      <div id="wlist" class="wlist"></div>
+      <div class="hint">Lista guardada neste navegador. Você também pode colar um ID existente:</div>
+      <div class="row" style="margin-top:6px"><input id="add-id" placeholder="walletId" ><input id="add-player" placeholder="playerId"></div>
+      <div class="row" style="margin-top:6px"><button id="add-btn">Adicionar à lista</button></div>
+    </section>
+  </aside>
+
+  <div>
+    <section class="card" id="wallet-card">
+      <h2>Carteira selecionada</h2>
+      <div id="wallet-empty" class="empty">Crie ou selecione uma carteira.</div>
+      <div id="wallet-body" hidden>
+        <div class="balance" id="bal">—</div>
+        <div class="meta" id="wmeta"></div>
+        <div class="row" style="margin-top:12px;flex-wrap:wrap">
+          <button id="refresh">Atualizar</button>
+          <button id="reconcile">Reconciliar saldo × razão</button>
+        </div>
+        <div id="recon" class="hint"></div>
+      </div>
+    </section>
+
+    <div class="grid2">
+      <section class="card">
+        <h2>Enviar transação</h2>
+        <div class="row">
+          <div><label for="kind">Tipo</label>
+            <select id="kind"><option>BET</option><option>WIN</option><option>LOSS</option><option>REFUND</option><option>ROLLBACK</option></select></div>
+          <div><label for="amount">Valor</label><input id="amount" value="25.00" inputmode="decimal"></div>
+        </div>
+        <div id="ref-wrap" hidden>
+          <label for="ref">Transação de referência (externalTransactionId)</label>
+          <input id="ref" placeholder="id externo da BET/WIN/REFUND">
+        </div>
+        <div class="row">
+          <div><label for="provider">Provedor</label><input id="provider" value="provider-a"></div>
+          <div><label for="round">Rodada</label><input id="round" value="round-1"></div>
+        </div>
+        <label for="ext">externalTransactionId</label>
+        <input id="ext">
+        <label for="idem">Idempotency-Key</label>
+        <input id="idem">
+        <div class="hint">Reenviar com a mesma chave e o mesmo conteúdo devolve o resultado original (sem novo débito). Mesma chave com conteúdo diferente → 409.</div>
+        <div class="row" style="margin-top:12px;flex-wrap:wrap">
+          <button id="send" class="primary">Enviar</button>
+          <button id="resend" title="Envia de novo exatamente o mesmo pedido">Reenviar igual</button>
+          <button id="newids">Novos IDs</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Cenários prontos</h2>
+        <button id="sc-two" style="width:100%;text-align:left">2 apostas de 80,00 ao mesmo tempo<br><span class="hint">Com saldo 100,00: só uma passa, a outra é rejeitada.</span></button>
+        <button id="sc-dup" style="width:100%;text-align:left;margin-top:8px">Mesma aposta enviada 20× em paralelo<br><span class="hint">Um único débito; as demais voltam como duplicata.</span></button>
+        <button id="sc-ooo" style="width:100%;text-align:left;margin-top:8px">REFUND antes da BET (fora de ordem)<br><span class="hint">Fica pendente (202) e resolve quando a BET chega.</span></button>
+        <button id="sc-many" style="width:100%;text-align:left;margin-top:8px">30 apostas de 10,00 em paralelo<br><span class="hint">Nunca deixa o saldo negativo.</span></button>
+        <div class="hint">Os cenários usam a carteira selecionada.</div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>Respostas</h2>
+      <div id="log" class="log"><div class="empty">Nenhuma requisição ainda.</div></div>
+    </section>
+
+    <section class="card">
+      <h2>Razão (ledger) — imutável</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>#</th><th>Quando</th><th>Tipo</th><th class="r">Valor</th><th class="r">Antes</th><th class="r">Depois</th><th>Transação</th></tr></thead>
+        <tbody id="ledger"><tr><td colspan="7" class="empty">—</td></tr></tbody>
+      </table></div>
+      <div class="row" style="margin-top:10px"><button id="more" hidden>Carregar mais</button></div>
+    </section>
+
+    <section class="card">
+      <h2>Consultar transação</h2>
+      <div class="row"><input id="q-id" placeholder="transactionId (UUID) ou externalTransactionId — ou clique num ID no razão"><button id="q-btn">Buscar</button></div>
+      <div id="q-out" class="hint"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
+  const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+  let wallets = store.get('wallets', []);
+  let selected = store.get('selected', null);
+  let cursor = null;
+  let last = null; // último pedido enviado (para "reenviar igual")
+
+  const money = (m) => m ? `${m.amount} ${m.currency}` : '—';
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  async function call(method, path, { body, headers = {} } = {}) {
+    const res = await fetch(path, { method, headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...headers }, body: body !== undefined ? JSON.stringify(body) : undefined });
+    let data = null; try { data = await res.json(); } catch {}
+    return { status: res.status, data };
+  }
+
+  function addLog(title, r) {
+    const box = $('log');
+    if (box.querySelector('.empty')) box.innerHTML = '';
+    const cls = r.status >= 500 ? 's5' : r.status >= 400 ? 's4' : 's' + r.status;
+    const d = document.createElement('div'); d.className = 'entry';
+    const reason = r.data?.failureCode ? ` · ${esc(r.data.failureCode)}` : r.data?.error ? ` · ${esc(r.data.error.code)}` : '';
+    const replay = r.data?.idempotentReplay ? ' · duplicata' : '';
+    d.innerHTML = `<span class="tag ${cls}">${r.status}</span> <b>${esc(title)}</b>${reason}${replay}${r.data?.status ? ' · ' + esc(r.data.status) : ''}<pre>${esc(JSON.stringify(r.data, null, 2)).replace(/&quot;transactionId&quot;: &quot;([0-9a-f-]{36})&quot;/g, '&quot;transactionId&quot;: &quot;<a href="#" class="txlink" data-id="$1">$1</a>&quot;')}</pre>`;
+    box.prepend(d); bindTxLinks();
+    while (box.children.length > 30) box.lastChild.remove();
+  }
+
+  // ---------- carteiras
+  function renderWallets() {
+    $('wcount').textContent = wallets.length ? `(${wallets.length})` : '';
+    $('wlist').innerHTML = wallets.length ? wallets.map((w) => `<div class="w ${w.id === selected ? 'sel' : ''}" data-id="${w.id}"><span>${esc(w.currency || '')} <small>${w.id.slice(0, 8)}…</small></span><small>${w.balance ? esc(w.balance) : ''}</small></div>`).join('') : '<div class="empty">Nenhuma ainda.</div>';
+    $('wlist').querySelectorAll('.w').forEach((el) => el.onclick = () => select(el.dataset.id));
+  }
+  const current = () => wallets.find((w) => w.id === selected);
+
+  async function select(id) {
+    selected = id; store.set('selected', id); renderWallets(); await refresh();
+  }
+
+  async function refresh() {
+    const w = current();
+    $('wallet-empty').hidden = !!w; $('wallet-body').hidden = !w;
+    if (!w) return;
+    const r = await call('GET', `/wallets/${w.id}`);
+    if (r.status === 404) { $('bal').textContent = 'carteira não existe neste banco'; return; }
+    if (r.status !== 200) { addLog('GET carteira', r); return; }
+    w.balance = r.data.balance.amount; w.currency = r.data.balance.currency; store.set('wallets', wallets);
+    $('bal').textContent = money(r.data.balance);
+    $('wmeta').textContent = `walletId ${w.id}\nplayerId ${w.playerId} · versão ${r.data.version}`;
+    $('wmeta').style.whiteSpace = 'pre-line';
+    renderWallets();
+    await loadLedger(true);
+  }
+
+  async function loadLedger(reset) {
+    const w = current(); if (!w) return;
+    if (reset) cursor = null;
+    const r = await call('GET', `/wallets/${w.id}/ledger?limit=20${cursor ? '&cursor=' + encodeURIComponent(cursor) : ''}`);
+    if (r.status !== 200) return addLog('GET ledger', r);
+    const rows = r.data.items.map((e) => `<tr><td>${e.walletVersion}</td><td>${new Date(e.createdAt).toLocaleString('pt-BR')}</td><td class="${e.direction === 'CREDIT' ? 'cred' : 'deb'}">${e.direction === 'CREDIT' ? 'Crédito' : 'Débito'}</td><td class="r">${esc(e.money.amount)}</td><td class="r">${esc(e.balanceBefore.amount)}</td><td class="r">${esc(e.balanceAfter.amount)}</td><td class="meta"><a href="#" class="txlink" data-id="${e.transactionId}" title="Consultar esta transação">${e.transactionId}</a></td></tr>`).join('');
+    if (reset) $('ledger').innerHTML = rows || '<tr><td colspan="7" class="empty">Sem lançamentos.</td></tr>'; else $('ledger').insertAdjacentHTML('beforeend', rows);
+    cursor = r.data.nextCursor; $('more').hidden = !cursor; bindTxLinks();
+  }
+
+  $('nw-create').onclick = async () => {
+    const playerId = uuid();
+    const r = await call('POST', '/wallets', { body: { playerId, initialBalance: { amount: $('nw-balance').value.trim(), currency: $('nw-currency').value.trim().toUpperCase() } } });
+    addLog('Criar carteira', r);
+    if (r.status === 201) { wallets.unshift({ id: r.data.id, playerId, currency: r.data.balance.currency, balance: r.data.balance.amount }); store.set('wallets', wallets); await select(r.data.id); }
+  };
+  $('add-btn').onclick = async () => {
+    const id = $('add-id').value.trim(), playerId = $('add-player').value.trim();
+    if (!id || !playerId) return;
+    if (!wallets.some((w) => w.id === id)) wallets.unshift({ id, playerId }); store.set('wallets', wallets);
+    $('add-id').value = ''; $('add-player').value = ''; await select(id);
+  };
+  $('refresh').onclick = refresh;
+  $('more').onclick = () => loadLedger(false);
+  $('reconcile').onclick = async () => {
+    const w = current(); if (!w) return;
+    const r = await call('POST', `/wallets/${w.id}/reconciliation`); addLog('Reconciliação', r);
+    const d = r.data; $('recon').textContent = d && 'consistent' in d ? (d.consistent ? `✔ consistente — saldo ${d.storedBalance?.amount ?? ''} = soma do razão (${d.checkedEntries} lançamentos)` : '✖ DIVERGENTE — veja a resposta abaixo') : '';
+  };
+
+  // ---------- transação
+  const newIds = () => { $('ext').value = 'ext-' + uuid().slice(0, 8); $('idem').value = 'idem-' + uuid(); };
+  $('newids').onclick = newIds; newIds();
+  $('kind').onchange = () => { $('ref-wrap').hidden = !['REFUND', 'ROLLBACK'].includes($('kind').value); };
+
+  function buildBody(over = {}) {
+    const w = current();
+    const body = { providerId: $('provider').value.trim(), externalTransactionId: $('ext').value.trim(), playerId: w.playerId, walletId: w.id, roundId: $('round').value.trim(), gameId: 'game-ui', kind: $('kind').value, money: { amount: $('amount').value.trim(), currency: w.currency || 'BRL' }, ...over };
+    if (['REFUND', 'ROLLBACK'].includes(body.kind) && $('ref').value.trim() && !over.referenceExternalTransactionId) body.referenceExternalTransactionId = $('ref').value.trim();
+    return body;
+  }
+  async function post(title, body, key) {
+    const r = await call('POST', '/wagering/transactions', { body, headers: { 'Idempotency-Key': key } });
+    addLog(title, r); return r;
+  }
+  function needWallet() { if (current()) return true; alert('Selecione uma carteira primeiro.'); return false; }
+
+  $('send').onclick = async () => {
+    if (!needWallet()) return;
+    last = { body: buildBody(), key: $('idem').value.trim() };
+    await post(`${last.body.kind} ${last.body.money.amount}`, last.body, last.key);
+    newIds(); await refresh();
+  };
+  $('resend').onclick = async () => {
+    if (!last) return alert('Envie uma transação antes.');
+    await post(`REENVIO ${last.body.kind} ${last.body.money.amount}`, last.body, last.key); await refresh();
+  };
+
+  // ---------- cenários
+  const mk = (kind, amount, extra = {}) => buildBody({ kind, money: { amount, currency: current().currency || 'BRL' }, externalTransactionId: 'sc-' + uuid().slice(0, 8), ...extra });
+  const burst = async (title, items) => {
+    const rs = await Promise.all(items.map(({ body, key }) => call('POST', '/wagering/transactions', { body, headers: { 'Idempotency-Key': key } })));
+    const count = {}; rs.forEach((r) => { const k = `${r.status}${r.data?.failureCode ? ' ' + r.data.failureCode : ''}${r.data?.idempotentReplay ? ' (duplicata)' : ''}`; count[k] = (count[k] || 0) + 1; });
+    addLog(title, { status: 200, data: { resumo: count } });
+    await refresh();
+  };
+  $('sc-two').onclick = () => { if (!needWallet()) return; burst('2 × 80,00 concorrentes', [0, 1].map(() => { const b = mk('BET', '80.00'); return { body: b, key: 'k-' + b.externalTransactionId }; })); };
+  $('sc-dup').onclick = () => { if (!needWallet()) return; const b = mk('BET', '5.00'); burst('Mesma aposta × 20', Array.from({ length: 20 }, () => ({ body: b, key: 'k-' + b.externalTransactionId }))); };
+  $('sc-many').onclick = () => { if (!needWallet()) return; burst('30 × 10,00 concorrentes', Array.from({ length: 30 }, () => { const b = mk('BET', '10.00'); return { body: b, key: 'k-' + b.externalTransactionId }; })); };
+  $('sc-ooo').onclick = async () => {
+    if (!needWallet()) return;
+    const bet = mk('BET', '15.00'); const refund = mk('REFUND', '15.00', { referenceExternalTransactionId: bet.externalTransactionId });
+    await post('REFUND antes da BET', refund, 'k-' + refund.externalTransactionId);
+    await post('BET chega depois', bet, 'k-' + bet.externalTransactionId);
+    const r = await call('GET', `/providers/${refund.providerId}/wagering/transactions/${refund.externalTransactionId}`);
+    addLog('Estado final do REFUND', r); await refresh();
+  };
+
+  // ---------- consulta
+  async function query(raw) {
+    const v = raw.trim().replace(/\s+/g, ''); if (!v) return;
+    $('q-id').value = v;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+    const provider = $('provider').value.trim();
+    const r = await call('GET', isUuid ? `/wagering/transactions/${v}` : `/providers/${encodeURIComponent(provider)}/wagering/transactions/${encodeURIComponent(v)}`);
+    const where = isUuid ? 'por transactionId' : `por externalTransactionId no provedor "${provider}"`;
+    const msg = r.status === 404 ? `Não encontrada ${where}. Confira o ID e o campo Provedor.` : r.status === 400 ? `ID inválido: ${esc(r.data?.error?.message ?? '')}` : '';
+    $('q-out').innerHTML = `<span class="tag s${r.status >= 500 ? 5 : r.status >= 400 ? 4 : r.status}">${r.status}</span> ${msg}${r.status === 200 ? `<pre class="meta" style="white-space:pre-wrap">${esc(JSON.stringify(r.data, null, 2))}</pre>` : ''}`;
+    $('q-out').scrollIntoView({ block: 'nearest' });
+  }
+  $('q-btn').onclick = () => query($('q-id').value);
+  $('q-id').onkeydown = (e) => { if (e.key === 'Enter') query($('q-id').value); };
+  function bindTxLinks() {
+    document.querySelectorAll('.txlink:not([data-bound])').forEach((a) => { a.dataset.bound = '1'; a.onclick = (e) => { e.preventDefault(); query(a.dataset.id); }; });
+  }
+
+  // ---------- saúde
+  async function health() {
+    const r = await call('GET', '/health/ready').catch(() => ({ status: 0 }));
+    const el = $('health'); el.className = 'pill ' + (r.status === 200 ? 'ok' : 'bad');
+    el.textContent = r.status === 200 ? 'pronto' : r.status === 503 ? 'dependência indisponível' : 'sem conexão';
+  }
+  health(); setInterval(health, 10000);
+
+  renderWallets(); if (selected) refresh();
+})();
+</script>
+</body>
+</html>
